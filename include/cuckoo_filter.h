@@ -52,5 +52,22 @@ cuckoo_filter_contains (
   size_t                key_length_in_bytes
 );
 
+void
+cuckoo_filter_store_and_clean (
+  cuckoo_filter_t      *filter,
+  char                 *basename
+);
+
+CUCKOO_FILTER_RETURN
+cuckoo_filter_load (
+  cuckoo_filter_t      **filter,
+  char                 *filename
+);
+
+size_t
+cuckoo_filter_memsize (
+  cuckoo_filter_t      *filter
+);
+
 #endif /* CUCKOO_FILTER_H */
 

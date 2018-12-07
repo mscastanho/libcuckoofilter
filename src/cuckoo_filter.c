@@ -26,6 +26,8 @@ struct cuckoo_filter_t {
   uint32_t              max_kick_attempts;
   uint32_t              seed;
   uint32_t              padding;
+  size_t                mem_size;
+  size_t	              array_mem_size;
   cuckoo_item_t         victim;
   cuckoo_item_t        *last_victim;
   cuckoo_nest_t         bucket[1];
@@ -258,8 +260,8 @@ cuckoo_filter_new (
     bucket_count <<= 1;
   }
 
-  size_t allocation_in_bytes = (sizeof(cuckoo_filter_t)
-    + (bucket_count * CUCKOO_NESTS_PER_BUCKET * sizeof(cuckoo_nest_t)));
+  size_t array_in_bytes = (bucket_count * CUCKOO_NESTS_PER_BUCKET * sizeof(cuckoo_nest_t));
+  size_t allocation_in_bytes = (sizeof(cuckoo_filter_t) + array_in_bytes);
 
   if (0 != posix_memalign((void **) &new_filter, sizeof(uint64_t),
     allocation_in_bytes)) {
@@ -268,6 +270,8 @@ cuckoo_filter_new (
 
   memset(new_filter, 0, allocation_in_bytes);
 
+  new_filter->mem_size = allocation_in_bytes;
+  new_filter->array_mem_size = array_in_bytes;
   new_filter->last_victim = NULL;
   memset(&new_filter->victim, 0, sizeof(new_filter)->victim);
   new_filter->bucket_count = bucket_count;
@@ -441,3 +445,75 @@ cuckoo_filter_contains (
   return cuckoo_filter_lookup(filter, &result, key, key_length_in_bytes);
 
 } /* cuckoo_filter_contains() */
+
+/* ------------------------------------------------------------------------- */
+
+size_t
+cuckoo_filter_memsize (
+  cuckoo_filter_t      *filter
+) {
+  return filter->mem_size;
+} /* cuckoo_filter_memsize() */
+
+/* ------------------------------------------------------------------------- */
+
+// ID used to name the file
+static uint32_t id = 0;
+
+// This function stores the filter in a file and clears its contents
+void
+cuckoo_filter_store_and_clean (
+  cuckoo_filter_t      *filter,
+  char                 *basename
+) {
+  FILE *fout;
+  char filename[128];
+ 
+  // TODO: Maybe we can make this faster
+  sprintf(filename,"%s_%d.cuckoo",basename,id);
+  fout = fopen(filename,"wb");
+
+  // Write entire filter to file
+  fwrite(filter,sizeof(char),filter->mem_size,fout);
+ 
+  // Clear the filter here (only the buckets)
+  memset(filter->bucket, 0, filter->array_mem_size);
+
+  id++;
+  fclose(fout);
+
+} /* cuckoo_filter_store_and_clean() */
+
+/* ------------------------------------------------------------------------- */
+
+// This function loads a filter structure from a binary file
+CUCKOO_FILTER_RETURN
+cuckoo_filter_load (
+  cuckoo_filter_t      **filter,
+  char                 *filename
+) {
+  FILE *fin;
+  long filesize;
+
+  fin = fopen(filename,"rb");
+  if(fin == NULL)
+    return CUCKOO_FILTER_NOT_FOUND;
+
+  // Get file size
+  fseek(fin, 0L, SEEK_END);
+  filesize = ftell(fin);
+
+  // Try to allocate memory for the filter
+  if (0 != posix_memalign((void **) &filter, sizeof(uint64_t),
+    filesize)) {
+    return CUCKOO_FILTER_ALLOCATION_FAILED;
+  }
+
+  // Read entire filter from file
+  fread((void*) filter,1,filesize,fin);
+
+  fclose(fin);
+
+  return CUCKOO_FILTER_OK;
+
+} /* cuckoo_filter_store_and_clean() */
