@@ -1,4 +1,5 @@
 
+#include <errno.h>
 #include "cuckoo_filter.h"
 
 #define CUCKOO_NESTS_PER_BUCKET     4
@@ -502,18 +503,99 @@ cuckoo_filter_load (
   // Get file size
   fseek(fin, 0L, SEEK_END);
   filesize = ftell(fin);
+  fseek(fin, 0, SEEK_SET); // Go to beginning
 
   // Try to allocate memory for the filter
-  if (0 != posix_memalign((void **) &filter, sizeof(uint64_t),
+  if (0 != posix_memalign((void **) filter, sizeof(uint64_t),
     filesize)) {
+    // switch(errno){
+    //   case ENOMEM:
+    //     printf("Error: Insufficient memory to allocate filter\n");
+    //     break;
+    //   case EINVAL:
+    //     printf("Error: invalid arguments\n");
+    //     break;
+    //   default:
+    //     printf("Error: Something else...\n");
+    //     break;
+    // }
     return CUCKOO_FILTER_ALLOCATION_FAILED;
   }
 
   // Read entire filter from file
-  fread((void*) filter,1,filesize,fin);
+  fread((void*) *filter,sizeof(char),filesize,fin);
 
   fclose(fin);
 
   return CUCKOO_FILTER_OK;
 
-} /* cuckoo_filter_store_and_clean() */
+} /* cuckoo_filter_load() */
+
+/* ------------------------------------------------------------------------- */
+/* https://stackoverflow.com/questions/7775991/how-to-get-hexdump-of-a-structure-data */
+
+void
+hexDump (
+  char      *desc,
+  void      *addr,
+  int	      len
+) {
+  int i;
+  unsigned char buff[17];
+  unsigned char *pc = (unsigned char*)addr;
+
+  // Output description if given.
+  if (desc != NULL)
+      printf ("%s:\n", desc);
+
+  if (len == 0) {
+      printf("  ZERO LENGTH\n");
+      return;
+  }
+  if (len < 0) {
+      printf("  NEGATIVE LENGTH: %i\n",len);
+      return;
+  }
+
+  // Process every byte in the data.
+  for (i = 0; i < len; i++) {
+      // Multiple of 16 means new line (with line offset).
+
+      if ((i % 16) == 0) {
+          // Just don't print ASCII for the zeroth line.
+          if (i != 0)
+              printf ("  %s\n", buff);
+
+          // Output the offset.
+          printf ("  %04x ", i);
+      }
+
+      // Now the hex code for the specific character.
+      printf (" %02x", pc[i]);
+
+      // And store a printable ASCII character for later.
+      if ((pc[i] < 0x20) || (pc[i] > 0x7e))
+          buff[i % 16] = '.';
+      else
+          buff[i % 16] = pc[i];
+      buff[(i % 16) + 1] = '\0';
+  }
+
+  // Pad out last line if not exactly 16 characters.
+  while ((i % 16) != 0) {
+      printf ("   ");
+      i++;
+  }
+
+  // And print the final ASCII bit.
+  printf ("  %s\n", buff);
+}
+
+/* ------------------------------------------------------------------------- */
+
+void
+cuckoo_filter_hexdump (
+  cuckoo_filter_t      *filter
+) {
+  hexDump ("cuckoo_filter", filter, filter->mem_size);
+}

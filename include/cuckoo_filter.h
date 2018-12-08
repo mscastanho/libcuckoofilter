@@ -52,6 +52,13 @@ cuckoo_filter_contains (
   size_t                key_length_in_bytes
 );
 
+CUCKOO_FILTER_RETURN
+cuckoo_get_next_entry (
+  cuckoo_filter_t      *filter,
+  void                 *key,
+  size_t                key_length_in_bytes
+);
+
 void
 cuckoo_filter_store_and_clean (
   cuckoo_filter_t      *filter,
@@ -66,6 +73,11 @@ cuckoo_filter_load (
 
 size_t
 cuckoo_filter_memsize (
+  cuckoo_filter_t      *filter
+);
+
+void
+cuckoo_filter_hexdump (
   cuckoo_filter_t      *filter
 );
 

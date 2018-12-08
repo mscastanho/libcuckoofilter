@@ -37,8 +37,6 @@ int main(){
         r = rand() % MAX_RANGE;
 
         if(!added[r]){ 
-            // printf("%d ",r);
-            // fflush(stdout);
             ret = cuckoo_filter_add(cf,&r,sizeof(r));
             if(ret != CUCKOO_FILTER_OK) printf("failed!\n");
             added[r] = 1;
@@ -67,18 +65,6 @@ int main(){
                 else
                     tneg++;
             }
-
-            // if(added[j]){ 
-            //     if(*res == 0) // True positive
-            //         tpos += 1;
-            //     else // False negative, should never happen
-            //         fneg += 1; 
-            // }else{
-            //     if(*res == 0) // False positive
-            //         fpos += 1; 
-            //     else // True negative
-            //         tneg += 1;
-            // }
         }
 
         printf("================================================\n");
@@ -101,13 +87,17 @@ int main(){
     printf("Time taken to save filter: %f\n",time_taken);
 
     res = cuckoo_filter_load(&loaded_cf,"cf_0.cuckoo");
-    if(res == CUCKOO_FILTER_NOT_FOUND)
+    if(res != CUCKOO_FILTER_OK){
         printf("Failed to load filter\n");
-    if(!memcmp(cf,loaded_cf,cuckoo_filter_memsize(cf))){
-        printf("Loaded filter is different!!!!\n");
-    }else{
-        printf("\nAll is fine, filter succesfully loaded!\n");
+        exit(1);
     }
+
+    /* First bytes should be equal, corresponding to struct data.
+       All trailing bytes in the original filter will be 0, since
+       function cuckoo_filter_store_and_clean() resets all elements
+       in the filter, as the name implies. */
+    cuckoo_filter_hexdump(cf);
+    cuckoo_filter_hexdump(loaded_cf);
 
     return 0;
 }
