@@ -458,20 +458,16 @@ cuckoo_filter_memsize (
 
 /* ------------------------------------------------------------------------- */
 
-// ID used to name the file
-static uint32_t id = 0;
-
 // This function stores the filter in a file and clears its contents
 void
 cuckoo_filter_store_and_clean (
   cuckoo_filter_t      *filter,
-  char                 *basename
+  char                 *filename
 ) {
   FILE *fout;
-  char filename[128];
- 
+  
   // TODO: Maybe we can make this faster
-  sprintf(filename,"%s_%d.cuckoo",basename,id);
+  //sprintf(filename,"%s_%d.cuckoo",basename,id);
   fout = fopen(filename,"wb");
 
   // Write entire filter to file
@@ -480,7 +476,6 @@ cuckoo_filter_store_and_clean (
   // Clear the filter here (only the buckets)
   memset(filter->bucket, 0, filter->array_mem_size);
 
-  id++;
   fclose(fout);
 
 } /* cuckoo_filter_store_and_clean() */
