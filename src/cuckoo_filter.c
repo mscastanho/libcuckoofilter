@@ -350,7 +350,6 @@ cuckoo_filter_add (
   void                 *key,
   size_t                key_length_in_bytes
 ) {
-  cuckoo_result_t   result;
   uint32_t fingerprint = get_fingerprint(filter, key, key_length_in_bytes);
   uint32_t h1, h2;
   size_t slot, aux;
