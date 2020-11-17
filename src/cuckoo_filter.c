@@ -140,7 +140,7 @@ get_fingerprint (
   uint32_t              key_length_in_bytes
 ) {
   uint32_t h =  hash(key, key_length_in_bytes, filter->bucket_count,
-    1000, filter->seed);
+    1000, filter->seed) & filter->mask;
 
   // We use fingerprint 0 to indicate an empty slot, so this is a forbidden
   // value for any given key.
@@ -169,8 +169,6 @@ add_fingerprint_to_bucket (
   uint32_t              fp,
   uint32_t              h
 ) {
-  fp &= filter->mask;
-
   for (size_t ii = 0; ii < filter->nests_per_bucket; ++ii) {
     cuckoo_nest_t *nest =
       &filter->bucket[(h * filter->nests_per_bucket) + ii];
@@ -192,8 +190,6 @@ remove_fingerprint_from_bucket (
   uint32_t              fp,
   uint32_t              h
 ) {
-  fp &= filter->mask;
-
   for (size_t ii = 0; ii < filter->nests_per_bucket; ++ii) {
     cuckoo_nest_t *nest =
       &filter->bucket[(h * filter->nests_per_bucket) + ii];
@@ -261,11 +257,12 @@ cuckoo_filter_new (
     bucket_count <<= 1;
   }
 
+  /* FIXME: Should check for integer overflows here */
   size_t array_in_bytes = (bucket_count * CUCKOO_NESTS_PER_BUCKET * sizeof(cuckoo_nest_t));
   size_t allocation_in_bytes = (sizeof(cuckoo_filter_t) + array_in_bytes);
 
-  if (0 != posix_memalign((void **) &new_filter, sizeof(uint64_t),
-    allocation_in_bytes)) {
+  new_filter = calloc(allocation_in_bytes, 1);
+  if (!new_filter) {
     return CUCKOO_FILTER_ALLOCATION_FAILED;
   }
 
@@ -320,7 +317,6 @@ cuckoo_filter_lookup (
   result->item.h1 = 0;
   result->item.h2 = 0;
 
-  fingerprint &= filter->mask;
   for (size_t ii = 0; ii < filter->nests_per_bucket; ++ii) {
     cuckoo_nest_t *n1 =
       &filter->bucket[(h1 * filter->nests_per_bucket) + ii];
@@ -354,7 +350,6 @@ cuckoo_filter_add (
   void                 *key,
   size_t                key_length_in_bytes
 ) {
-  cuckoo_result_t   result;
   uint32_t fingerprint = get_fingerprint(filter, key, key_length_in_bytes);
   uint32_t h1, h2;
   size_t slot, aux;
@@ -495,14 +490,16 @@ cuckoo_filter_load (
   if(fin == NULL)
     return CUCKOO_FILTER_NOT_FOUND;
 
+  // FIXME: Should check for errors from all f*() calls here
+
   // Get file size
   fseek(fin, 0L, SEEK_END);
   filesize = ftell(fin);
   fseek(fin, 0, SEEK_SET); // Go to beginning
 
   // Try to allocate memory for the filter
-  if (0 != posix_memalign((void **) filter, sizeof(uint64_t),
-    filesize)) {
+  *filter = malloc(filesize);
+  if (!*filter) {
     // switch(errno){
     //   case ENOMEM:
     //     printf("Error: Insufficient memory to allocate filter\n");
